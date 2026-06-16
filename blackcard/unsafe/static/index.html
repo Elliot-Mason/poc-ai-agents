@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BLACKCARD — Private Banking Terminal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans:    ['"Inter"', 'system-ui', 'sans-serif'],
+            display: ['"Cormorant Garamond"', '"Playfair Display"', 'serif'],
+            mono:    ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
+          },
+          colors: {
+            gold: {
+              DEFAULT: '#c9a961',
+              light:   '#e8d5a0',
+              dark:    '#8c7339',
+            },
+            platinum: {
+              DEFAULT: '#c8c6c1',
+              dim:     '#8a8884',
+            },
+            onyx: {
+              900: '#000000',
+              800: '#070707',
+              700: '#0d0d0d',
+              600: '#141414',
+              500: '#1c1c1c',
+              400: '#262626',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <style>
+    :root {
+      --gold:        #c9a961;
+      --gold-light:  #e8d5a0;
+      --gold-dark:   #8c7339;
+      --platinum:    #c8c6c1;
+      --platinum-dim:#8a8884;
+      --onyx:        #0a0a0a;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background:
+        radial-gradient(circle at 20% 15%, rgba(201, 169, 97, 0.04), transparent 55%),
+        radial-gradient(circle at 80% 85%, rgba(232, 213, 160, 0.025), transparent 55%),
+        linear-gradient(180deg, #050505 0%, #0a0a0a 50%, #030303 100%);
+      color: #e8e6e1;
+      overflow: hidden;
+      letter-spacing: 0.01em;
+    }
+
+    /* Subtle brushed-metal noise overlay */
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.035;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+      z-index: 50;
+    }
+
+    /* Vignette for depth */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.85) 100%);
+      z-index: 40;
+    }
+
+    /* Hairline gold divider */
+    .hairline {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201,169,97,0.5), transparent);
+    }
+
+    /* Card panel — the Blackcard itself */
+    .card-panel {
+      background:
+        linear-gradient(135deg, rgba(20,20,20,0.95) 0%, rgba(8,8,8,0.95) 50%, rgba(14,14,14,0.95) 100%);
+      border: 1px solid rgba(201, 169, 97, 0.18);
+      box-shadow:
+        0 0 0 1px rgba(232, 213, 160, 0.04) inset,
+        0 1px 0 rgba(255, 255, 255, 0.03) inset,
+        0 30px 60px -20px rgba(0, 0, 0, 0.9),
+        0 0 80px -20px rgba(201, 169, 97, 0.06);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Embossed serif title */
+    .embossed {
+      color: transparent;
+      background: linear-gradient(180deg, #f4ead0 0%, #c9a961 45%, #8c7339 100%);
+      -webkit-background-clip: text;
+              background-clip: text;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+      letter-spacing: 0.32em;
+    }
+
+    /* Logo monogram — like a card emblem */
+    .monogram {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(232,213,160,0.3), transparent 60%),
+        linear-gradient(135deg, #1a1a1a 0%, #050505 100%);
+      border: 1px solid rgba(201,169,97,0.5);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.5) inset,
+        0 2px 6px rgba(0,0,0,0.6),
+        0 0 20px rgba(201,169,97,0.12);
+    }
+
+    /* Status dot */
+    @keyframes statusPulse {
+      0%, 100% { box-shadow: 0 0 4px var(--gold), 0 0 8px rgba(201,169,97,0.4); }
+      50%      { box-shadow: 0 0 6px var(--gold-light), 0 0 14px rgba(232,213,160,0.5); }
+    }
+    .status-pulse { animation: statusPulse 2.4s infinite ease-in-out; }
+
+    /* Message bubbles */
+    .msg-user {
+      background: linear-gradient(135deg, rgba(201,169,97,0.12) 0%, rgba(140,115,57,0.06) 100%);
+      border: 1px solid rgba(201,169,97,0.28);
+      box-shadow: 0 1px 0 rgba(232,213,160,0.05) inset;
+    }
+    .msg-bot {
+      background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%);
+      border: 1px solid rgba(200,198,193,0.14);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+
+    /* Premium CTA button */
+    .gold-btn {
+      background: linear-gradient(180deg, #e8d5a0 0%, #c9a961 50%, #8c7339 100%);
+      color: #0a0a0a;
+      border: 1px solid rgba(232,213,160,0.6);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.3) inset,
+        0 -1px 0 rgba(0,0,0,0.3) inset,
+        0 2px 8px rgba(0,0,0,0.5);
+      transition: transform 0.1s ease, filter 0.2s ease, box-shadow 0.2s ease;
+      letter-spacing: 0.18em;
+    }
+    .gold-btn:hover {
+      filter: brightness(1.08);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.4) inset,
+        0 -1px 0 rgba(0,0,0,0.3) inset,
+        0 4px 14px rgba(201,169,97,0.35);
+    }
+    .gold-btn:active { transform: translateY(1px); }
+    .gold-btn:disabled {
+      filter: grayscale(0.7) brightness(0.6);
+      cursor: not-allowed;
+    }
+
+    /* Input */
+    textarea {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(200,198,193,0.18);
+      color: #e8e6e1;
+      caret-color: var(--gold);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: rgba(201,169,97,0.7);
+      box-shadow: 0 0 0 1px rgba(201,169,97,0.3), 0 0 18px rgba(201,169,97,0.1);
+    }
+
+    /* Scrollbar */
+    #chat-messages::-webkit-scrollbar { width: 6px; }
+    #chat-messages::-webkit-scrollbar-track { background: transparent; }
+    #chat-messages::-webkit-scrollbar-thumb {
+      background: linear-gradient(var(--gold-dark), var(--gold));
+      border-radius: 3px;
+    }
+
+    /* Typing dots */
+    @keyframes pulse-dot {
+      0%, 80%, 100% { transform: scale(0.5); opacity: 0.3; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    .dot { animation: pulse-dot 1.3s infinite ease-in-out both; }
+    .dot:nth-child(1) { animation-delay: 0s; }
+    .dot:nth-child(2) { animation-delay: 0.15s; }
+    .dot:nth-child(3) { animation-delay: 0.3s; }
+
+    /* Message appear */
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg-appear { animation: appear 0.3s ease-out both; }
+
+    /* Cursor blink for streaming */
+    @keyframes blink { 50% { opacity: 0; } }
+    .cursor-blink::after {
+      content: '▎';
+      color: var(--gold);
+      margin-left: 2px;
+      animation: blink 1s steps(2, start) infinite;
+    }
+
+    /* Tabs */
+    .tab-btn {
+      transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Markdown-rendered bot output */
+    .bot-body { white-space: normal; }
+    .bot-body p             { margin: 0 0 0.75em; }
+    .bot-body p:last-child  { margin-bottom: 0; }
+    .bot-body strong        { color: var(--gold-light); font-weight: 600; }
+    .bot-body em            { color: var(--platinum); font-style: italic; }
+    .bot-body a             { color: var(--gold); text-decoration: underline; text-underline-offset: 2px; }
+    .bot-body a:hover       { color: var(--gold-light); }
+    .bot-body ul, .bot-body ol { margin: 0.25em 0 0.75em 1.25em; }
+    .bot-body ul            { list-style: disc; }
+    .bot-body ol            { list-style: decimal; }
+    .bot-body li            { margin: 0.15em 0; }
+    .bot-body h1, .bot-body h2, .bot-body h3, .bot-body h4 {
+      font-family: '"Cormorant Garamond"', serif;
+      color: var(--gold-light);
+      font-weight: 600;
+      margin: 0.5em 0 0.4em;
+      letter-spacing: 0.04em;
+    }
+    .bot-body h1 { font-size: 1.25rem; }
+    .bot-body h2 { font-size: 1.15rem; }
+    .bot-body h3 { font-size: 1.05rem; }
+    .bot-body code {
+      font-family: '"JetBrains Mono"', monospace;
+      font-size: 0.85em;
+      background: rgba(201,169,97,0.08);
+      border: 1px solid rgba(201,169,97,0.18);
+      color: var(--gold-light);
+      padding: 0.05em 0.35em;
+      border-radius: 4px;
+    }
+    .bot-body pre {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(201,169,97,0.18);
+      border-radius: 8px;
+      padding: 0.75em 1em;
+      margin: 0.5em 0 0.75em;
+      overflow-x: auto;
+    }
+    .bot-body pre code {
+      background: transparent;
+      border: none;
+      color: #e8e6e1;
+      padding: 0;
+    }
+    .bot-body blockquote {
+      border-left: 2px solid rgba(201,169,97,0.5);
+      padding-left: 0.75em;
+      color: var(--platinum-dim);
+      margin: 0.5em 0;
+      font-style: italic;
+    }
+    .bot-body hr {
+      border: none;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201,169,97,0.4), transparent);
+      margin: 0.75em 0;
+    }
+    .bot-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.5em 0;
+      font-size: 0.9em;
+    }
+    .bot-body th, .bot-body td {
+      border: 1px solid rgba(201,169,97,0.18);
+      padding: 0.4em 0.6em;
+      text-align: left;
+    }
+    .bot-body th { color: var(--gold-light); background: rgba(201,169,97,0.06); }
+  </style>
+</head>
+
+<body class="font-sans">
+
+  <div class="relative z-10 h-screen flex flex-col max-w-5xl mx-auto px-4 py-6">
+
+    <!-- Header -->
+    <header class="card-panel rounded-2xl px-6 py-5 mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <!-- Monogram -->
+        <div class="monogram relative w-12 h-12 rounded-lg flex items-center justify-center">
+          <span class="font-display font-bold text-gold-light text-xl">B</span>
+          <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-gold status-pulse"></span>
+        </div>
+
+        <div>
+          <h1 class="embossed font-display font-semibold text-2xl sm:text-3xl uppercase">
+            Blackcard
+          </h1>
+          <p class="text-[10px] sm:text-[11px] uppercase tracking-[0.4em] text-platinum-dim mt-0.5">
+            Private Banking Terminal
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <nav class="flex items-center gap-1 p-1 rounded-lg border border-gold/20 bg-black/60">
+          <button id="tab-chat" type="button"
+                  class="tab-btn px-4 py-1.5 rounded-md text-[10px] uppercase tracking-[0.3em]
+                         text-gold-light bg-gold/10 border border-gold/40">
+            Concierge
+          </button>
+          <button id="tab-logs" type="button"
+                  class="tab-btn px-4 py-1.5 rounded-md text-[10px] uppercase tracking-[0.3em]
+                         text-platinum-dim hover:text-platinum border border-transparent">
+            Ledger
+          </button>
+        </nav>
+        <div class="hidden sm:flex items-center gap-2 text-[10px] text-platinum-dim uppercase tracking-[0.3em]">
+          <span class="w-1.5 h-1.5 rounded-full bg-gold status-pulse"></span>
+          <span>secure</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Chat panel -->
+    <main id="view-chat" class="card-panel rounded-2xl flex-1 flex flex-col min-h-0 overflow-hidden">
+
+      <div id="chat-messages"
+           class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-4">
+
+        <!-- Initial bot greeting -->
+        <div class="msg-appear flex gap-3">
+          <div class="w-8 h-8 rounded-md flex-shrink-0 flex items-center justify-center
+                      monogram text-gold-light font-display font-semibold text-sm">
+            B
+          </div>
+          <div class="msg-bot rounded-xl rounded-tl-sm px-4 py-3 max-w-[85%]">
+            <p class="text-[10px] uppercase tracking-[0.3em] text-gold-light/80 mb-1.5">concierge</p>
+            <p class="text-sm leading-relaxed text-platinum">
+              Welcome. How may I be of service this evening?
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="hairline"></div>
+
+      <!-- Composer -->
+      <div class="px-4 sm:px-6 py-4 bg-black/40">
+        <form id="chat-form" class="flex items-end gap-3">
+          <div class="flex-1 relative">
+            <textarea id="chat-input"
+                      rows="1"
+                      placeholder="Compose a message…"
+                      class="w-full resize-none rounded-xl px-4 py-3 text-sm placeholder-platinum-dim/60
+                             font-sans"></textarea>
+          </div>
+          <button id="send-btn" type="submit"
+                  class="gold-btn rounded-xl px-6 py-3 text-xs font-semibold uppercase">
+            Send
+          </button>
+        </form>
+        <p class="mt-2 text-[10px] uppercase tracking-[0.3em] text-platinum-dim/70">
+          Enter to send · Shift+Enter for newline
+        </p>
+      </div>
+    </main>
+
+    <!-- Logs panel -->
+    <section id="view-logs" class="card-panel rounded-2xl flex-1 flex-col min-h-0 overflow-hidden hidden">
+      <div class="flex items-center justify-between px-4 sm:px-6 py-4 bg-black/40">
+        <div>
+          <p class="text-[11px] uppercase tracking-[0.35em] text-gold-light">Private Ledger</p>
+          <p class="text-[10px] uppercase tracking-[0.3em] text-platinum-dim mt-0.5">
+            Confidential entries
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="logs-count"
+                class="text-[10px] uppercase tracking-[0.35em] text-platinum-dim">— entries</span>
+          <button id="logs-refresh" type="button"
+                  class="gold-btn rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase">
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div class="hairline"></div>
+      <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-[10px] uppercase tracking-[0.3em] text-gold-light/80 border-b border-gold/20">
+              <th class="text-left py-2 pr-4 font-medium">№</th>
+              <th class="text-left py-2 pr-4 font-medium">Note</th>
+              <th class="text-left py-2 font-medium">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="logs-body"></tbody>
+        </table>
+        <p id="logs-empty" class="hidden py-12 text-center text-platinum-dim text-[10px] uppercase tracking-[0.4em]">
+          No entries on file
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <div class="vignette"></div>
+  <div class="noise"></div>
+
+  <script>
+    const messagesEl = document.getElementById('chat-messages');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    const history = [];
+
+    function autosize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    }
+    input.addEventListener('input', autosize);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      }[c]));
+    }
+
+    if (window.marked) {
+      marked.setOptions({ gfm: true, breaks: true });
+    }
+
+    function renderMarkdown(text) {
+      if (!window.marked || !window.DOMPurify) {
+        return escapeHtml(text);
+      }
+      return DOMPurify.sanitize(marked.parse(text));
+    }
+
+    function scrollToBottom() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addUserMessage(text) {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-appear flex gap-3 justify-end';
+      wrap.innerHTML = `
+        <div class="msg-user rounded-xl rounded-tr-sm px-4 py-3 max-w-[85%]">
+          <p class="text-[10px] uppercase tracking-[0.3em] text-gold-light/80 mb-1.5 text-right">you</p>
+          <p class="text-sm leading-relaxed text-platinum whitespace-pre-wrap">${escapeHtml(text)}</p>
+        </div>
+        <div class="w-8 h-8 rounded-md flex-shrink-0 flex items-center justify-center
+                    bg-gradient-to-br from-gold/30 to-gold-dark/30
+                    border border-gold/50 text-gold-light font-display font-semibold text-sm">
+          U
+        </div>`;
+      messagesEl.appendChild(wrap);
+      scrollToBottom();
+    }
+
+    function addBotMessage() {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-appear flex gap-3';
+      wrap.innerHTML = `
+        <div class="w-8 h-8 rounded-md flex-shrink-0 flex items-center justify-center
+                    monogram text-gold-light font-display font-semibold text-sm">
+          B
+        </div>
+        <div class="msg-bot rounded-xl rounded-tl-sm px-4 py-3 max-w-[85%]">
+          <p class="text-[10px] uppercase tracking-[0.3em] text-gold-light/80 mb-1.5">concierge</p>
+          <div class="bot-body text-sm leading-relaxed text-platinum"></div>
+        </div>`;
+      messagesEl.appendChild(wrap);
+      scrollToBottom();
+      return wrap.querySelector('.bot-body');
+    }
+
+    function addTyping() {
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-appear flex gap-3';
+      wrap.id = 'typing-indicator';
+      wrap.innerHTML = `
+        <div class="w-8 h-8 rounded-md flex-shrink-0 flex items-center justify-center
+                    monogram text-gold-light font-display font-semibold text-sm">
+          B
+        </div>
+        <div class="msg-bot rounded-xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+          <span class="dot w-1.5 h-1.5 rounded-full bg-gold-light"></span>
+          <span class="dot w-1.5 h-1.5 rounded-full bg-gold"></span>
+          <span class="dot w-1.5 h-1.5 rounded-full bg-gold-dark"></span>
+        </div>`;
+      messagesEl.appendChild(wrap);
+      scrollToBottom();
+    }
+
+    function removeTyping() {
+      document.getElementById('typing-indicator')?.remove();
+    }
+
+    async function sendMessage(text) {
+      addUserMessage(text);
+      addTyping();
+      sendBtn.disabled = true;
+      input.disabled = true;
+
+      let bodyEl = null;
+      let assembled = '';
+
+      try {
+        const resp = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            history,
+            stream: true,
+          }),
+        });
+
+        if (!resp.body) throw new Error('No response body');
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx;
+          while ((idx = buffer.indexOf('\n\n')) !== -1) {
+            const chunk = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            for (const line of chunk.split('\n')) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const evt = JSON.parse(line.slice(6));
+                if (evt.token) {
+                  if (!bodyEl) {
+                    removeTyping();
+                    bodyEl = addBotMessage();
+                    bodyEl.classList.add('cursor-blink');
+                  }
+                  assembled += evt.token;
+                  bodyEl.innerHTML = renderMarkdown(assembled);
+                  scrollToBottom();
+                }
+                if (evt.done) {
+                  bodyEl?.classList.remove('cursor-blink');
+                }
+              } catch (_) { /* ignore parse errors */ }
+            }
+          }
+        }
+
+        if (!bodyEl) {
+          removeTyping();
+          bodyEl = addBotMessage();
+        }
+        bodyEl.classList.remove('cursor-blink');
+
+        history.push({ role: 'user', content: text });
+        history.push({ role: 'assistant', content: assembled });
+      } catch (err) {
+        removeTyping();
+        const el = addBotMessage();
+        el.textContent = 'Connection unavailable: ' + err.message;
+      } finally {
+        sendBtn.disabled = false;
+        input.disabled = false;
+        input.value = '';
+        autosize();
+        input.focus();
+      }
+    }
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      sendMessage(text);
+    });
+
+    /* ---------- Tab switching + logs view ---------- */
+    const viewChat   = document.getElementById('view-chat');
+    const viewLogs   = document.getElementById('view-logs');
+    const tabChat    = document.getElementById('tab-chat');
+    const tabLogs    = document.getElementById('tab-logs');
+    const logsBody   = document.getElementById('logs-body');
+    const logsEmpty  = document.getElementById('logs-empty');
+    const logsCount  = document.getElementById('logs-count');
+    const logsRefresh = document.getElementById('logs-refresh');
+
+    const TAB_ACTIVE = ['text-gold-light', 'bg-gold/10', 'border-gold/40'];
+    const TAB_INACTIVE = ['text-platinum-dim', 'border-transparent'];
+
+    function setActive(el) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove(...TAB_ACTIVE);
+        b.classList.add(...TAB_INACTIVE);
+      });
+      el.classList.remove(...TAB_INACTIVE);
+      el.classList.add(...TAB_ACTIVE);
+    }
+
+    function showChat() {
+      viewChat.classList.remove('hidden');
+      viewChat.classList.add('flex');
+      viewLogs.classList.add('hidden');
+      viewLogs.classList.remove('flex');
+      setActive(tabChat);
+      input.focus();
+    }
+
+    function showLogs() {
+      viewLogs.classList.remove('hidden');
+      viewLogs.classList.add('flex');
+      viewChat.classList.add('hidden');
+      viewChat.classList.remove('flex');
+      setActive(tabLogs);
+      loadLogs();
+    }
+
+    tabChat.addEventListener('click', showChat);
+    tabLogs.addEventListener('click', showLogs);
+    logsRefresh.addEventListener('click', loadLogs);
+
+    async function loadLogs() {
+      try {
+        const resp = await fetch('/api/logs');
+        const rows = await resp.json();
+        renderLogs(rows);
+      } catch (err) {
+        logsBody.innerHTML = `
+          <tr><td colspan="3" class="py-6 text-center text-gold-light/80 text-[10px] uppercase tracking-[0.3em]">
+            Error: ${escapeHtml(err.message)}
+          </td></tr>`;
+        logsCount.textContent = '— entries';
+      }
+    }
+
+    function renderLogs(rows) {
+      logsCount.textContent = `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`;
+      if (!rows.length) {
+        logsBody.innerHTML = '';
+        logsEmpty.classList.remove('hidden');
+        return;
+      }
+      logsEmpty.classList.add('hidden');
+      logsBody.innerHTML = rows.map(r => `
+        <tr class="border-b border-gold/10 hover:bg-gold/5 transition">
+          <td class="py-2.5 pr-4 text-gold-light/90 font-mono">${r.id}</td>
+          <td class="py-2.5 pr-4 text-platinum">${escapeHtml(r.note ?? '')}</td>
+          <td class="py-2.5 text-platinum-dim font-mono text-xs">${escapeHtml(r.created_at ?? '')}</td>
+        </tr>`).join('');
+    }
+
+    input.focus();
+  </script>
+</body>
+</html>

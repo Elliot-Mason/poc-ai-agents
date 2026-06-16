@@ -1,0 +1,10 @@
+target_app:
+  url: http://host.docker.internal:8000/chat
+
+ascendai:
+  api_key: "replace-me"
+  max_workers: 1
+
+log:
+  level: debug
+  file: /app/logs/ascendai_bridge.log

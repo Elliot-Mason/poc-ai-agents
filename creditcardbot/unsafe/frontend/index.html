@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CreditCardBot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            surface:  { 50: '#0f1117', 100: '#181a23', 200: '#1f2230', 300: '#2a2d3d', 400: '#393d52' },
+            ink:      { 50: '#a0a4b8', 100: '#cccfd9', 200: '#e8e9ef', 300: '#ffffff', 400: '#ffffff' },
+            accent:   { 50: '#1c1635', 100: '#2d2457', 200: '#6c5ce7', 300: '#a29bfe', 400: '#c4bfff', 500: '#6c5ce7' },
+            ok:       { 50: '#0f1f18', 100: '#142e22', 200: '#00b894', 300: '#55efc4' },
+            no:       { 50: '#231316', 100: '#33191e', 200: '#e17055', 300: '#fab1a0' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { -webkit-font-smoothing: antialiased; }
+    .scroll-thin::-webkit-scrollbar { width: 5px; }
+    .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: #2a2d3d; border-radius: 99px; }
+  </style>
+</head>
+<body class="h-full bg-surface-50 text-ink-300 flex flex-col font-sans">
+
+  <!-- Header -->
+  <header class="bg-surface-100/80 backdrop-blur border-b border-surface-200 px-6 py-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-accent-200 flex items-center justify-center text-white text-lg shadow-sm">💳</div>
+      <div>
+        <h1 class="text-lg font-semibold text-ink-400 tracking-tight">CreditCardBot</h1>
+        <p class="text-xs text-ink-50 font-light">Your AI credit card advisor</p>
+      </div>
+    </div>
+    <button
+      id="toggle-panel"
+      class="rounded-lg bg-surface-100 hover:bg-surface-200 border border-surface-200 px-4 py-2 text-xs font-medium text-ink-100 transition"
+    >
+      📋 Applications
+    </button>
+  </header>
+
+  <!-- Main layout -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Chat column -->
+    <div class="flex flex-col flex-1 min-w-0">
+      <!-- Chat area -->
+      <main id="chat" class="flex-1 overflow-y-auto scroll-thin px-4 py-8 space-y-5 max-w-2xl w-full mx-auto">
+        <div class="flex gap-3">
+          <div class="shrink-0 w-8 h-8 rounded-full bg-accent-100 text-accent-500 flex items-center justify-center text-sm">🤖</div>
+          <div class="bg-surface-100 border border-surface-200 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] shadow-sm">
+            <p class="text-sm text-ink-200 leading-relaxed">Hey there! I'm your credit card assistant. Tell me what you're looking for — cash back, travel rewards, low fees — and I'll find the best cards for you.</p>
+          </div>
+        </div>
+      </main>
+
+      <!-- Input bar -->
+      <footer class="bg-surface-100/70 backdrop-blur border-t border-surface-200 px-4 py-4 shrink-0">
+        <form id="form" class="max-w-2xl mx-auto flex gap-3">
+          <input
+            id="input"
+            type="text"
+            placeholder="Ask about credit cards..."
+            autocomplete="off"
+            class="flex-1 rounded-xl bg-surface-200 border border-surface-300 px-4 py-3 text-sm text-ink-300 placeholder-ink-50 focus:outline-none focus:ring-2 focus:ring-accent-200 focus:border-accent-300 transition"
+          />
+          <button
+            type="submit"
+            class="rounded-xl bg-accent-500 hover:bg-accent-400 px-5 py-3 text-sm font-medium text-white shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </form>
+      </footer>
+    </div>
+
+    <!-- Applications side panel -->
+    <aside id="panel" class="hidden w-96 border-l border-surface-200 bg-surface-100/80 backdrop-blur flex flex-col shrink-0 overflow-hidden">
+      <div class="px-5 py-4 border-b border-surface-200 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink-300 tracking-tight">Submitted Applications</h2>
+        <button id="refresh-apps" class="text-xs text-accent-500 hover:text-accent-400 font-medium transition">↻ Refresh</button>
+      </div>
+      <div id="app-list" class="flex-1 overflow-y-auto scroll-thin p-4 space-y-3">
+        <p class="text-sm text-surface-400 text-center py-8">Loading...</p>
+      </div>
+    </aside>
+
+  </div>
+
+  <script>
+    const chat       = document.getElementById('chat');
+    const form       = document.getElementById('form');
+    const input      = document.getElementById('input');
+    const btn        = form.querySelector('button');
+    const panel      = document.getElementById('panel');
+    const toggleBtn  = document.getElementById('toggle-panel');
+    const refreshBtn = document.getElementById('refresh-apps');
+    const appList    = document.getElementById('app-list');
+    const messages   = [];
+
+    // ---- Applications panel ----
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) loadApplications();
+    });
+
+    refreshBtn.addEventListener('click', loadApplications);
+
+    async function loadApplications() {
+      appList.innerHTML = '<p class="text-sm text-surface-400 text-center py-8 animate-pulse">Loading...</p>';
+      try {
+        const res = await fetch('/applications');
+        const apps = await res.json();
+
+        if (apps.length === 0) {
+          appList.innerHTML = '<p class="text-sm text-surface-400 text-center py-8">No applications yet.</p>';
+          return;
+        }
+
+        appList.innerHTML = '';
+        apps.forEach(app => {
+          const isApproved = app.status === 'approved';
+          const card = document.createElement('div');
+          card.className = 'rounded-xl border p-4 space-y-2 shadow-sm ' +
+            (isApproved ? 'bg-ok-50 border-ok-100' : 'bg-no-50 border-no-100');
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-sm text-ink-300">${app.first_name} ${app.last_name}</span>
+              <span class="text-xs font-medium px-2.5 py-0.5 rounded-full ${
+                isApproved ? 'bg-ok-50 text-ok-300' : 'bg-no-50 text-no-300'
+              }">${app.status.toUpperCase()}</span>
+            </div>
+            <p class="text-xs text-ink-50">${app.card_name} · ${app.issuer}</p>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink-50">
+              <span>Credit Score</span><span class="text-ink-200">${app.credit_score}</span>
+              <span>Income</span><span class="text-ink-200">$${Number(app.annual_income).toLocaleString()}</span>
+              ${isApproved ? `<span>Approved Limit</span><span class="text-ok-300 font-medium">$${Number(app.approved_limit).toLocaleString()}</span>` : ''}
+            </div>
+            <p class="text-xs text-surface-300">${app.email} · ${new Date(app.created_at).toLocaleDateString()}</p>
+          `;
+          appList.appendChild(card);
+        });
+      } catch {
+        appList.innerHTML = '<p class="text-sm text-no-300 text-center py-8">Failed to load applications.</p>';
+      }
+    }
+
+    // ---- Chat ----
+    function addBubble(role, text) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex gap-3' + (role === 'user' ? ' justify-end' : '');
+
+      if (role === 'assistant') {
+        const avatar = document.createElement('div');
+        avatar.className = 'shrink-0 w-8 h-8 rounded-full bg-accent-100 text-accent-500 flex items-center justify-center text-sm';
+        avatar.textContent = '🤖';
+        wrapper.appendChild(avatar);
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = role === 'user'
+        ? 'bg-accent-200 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%] text-sm whitespace-pre-wrap shadow-sm leading-relaxed'
+        : 'bg-surface-100 border border-surface-200 text-ink-200 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] text-sm whitespace-pre-wrap shadow-sm leading-relaxed';
+      bubble.textContent = text;
+      wrapper.appendChild(bubble);
+
+      if (role === 'user') {
+        const avatar = document.createElement('div');
+        avatar.className = 'shrink-0 w-8 h-8 rounded-full bg-surface-200 text-ink-50 flex items-center justify-center text-sm';
+        avatar.textContent = '🧑';
+        wrapper.appendChild(avatar);
+      }
+
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+      return bubble;
+    }
+
+    function addThinking() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex gap-3';
+      wrapper.id = 'thinking';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'shrink-0 w-8 h-8 rounded-full bg-accent-100 text-accent-500 flex items-center justify-center text-sm';
+      avatar.textContent = '🤖';
+      wrapper.appendChild(avatar);
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bg-surface-100 border border-surface-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-ink-50 shadow-sm';
+      bubble.innerHTML = '<span class="animate-pulse">Thinking...</span>';
+      wrapper.appendChild(bubble);
+
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function removeThinking() {
+      const el = document.getElementById('thinking');
+      if (el) el.remove();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      btn.disabled = true;
+      input.disabled = true;
+
+      addBubble('user', text);
+      messages.push({ role: 'user', content: text });
+
+      addThinking();
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages }),
+        });
+
+        removeThinking();
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          addBubble('assistant', '⚠️ ' + (err.detail || 'Something went wrong.'));
+        } else {
+          const data = await res.json();
+          messages.push({ role: 'assistant', content: data.reply });
+          addBubble('assistant', data.reply);
+          if (!panel.classList.contains('hidden')) loadApplications();
+        }
+      } catch (err) {
+        removeThinking();
+        addBubble('assistant', '⚠️ Can\'t reach the server. Is the backend running?');
+      }
+
+      btn.disabled = false;
+      input.disabled = false;
+      input.focus();
+    });
+  </script>
+</body>
+</html>

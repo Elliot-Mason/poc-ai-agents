@@ -1,0 +1,30 @@
+.DS_Store
+creds
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environments
+.env
+.venv/
+venv/
+
+# Generated app state
+*.db
+*.sqlite
+*.sqlite3
+*.log
+prompts.txt
+prompts.log
+output.txt
+claude-output.txt
+assessments.txt
+
+# Nested repositories from local experiments
+**/.git/
+
+# Excluded handoff folders
+poc/
+prompts/

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIMortgage | Mortgage Advisor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-appear { animation: fadeSlideUp 0.3s ease-out both; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-6px); }
+    }
+    .dot-bounce { animation: bounce 1.4s infinite ease-in-out both; }
+    .dot-bounce:nth-child(1) { animation-delay: 0s; }
+    .dot-bounce:nth-child(2) { animation-delay: 0.16s; }
+    .dot-bounce:nth-child(3) { animation-delay: 0.32s; }
+    #chat-messages::-webkit-scrollbar { width: 6px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    textarea:focus { outline: none; }
+    .view-section { display: none; }
+    .view-section.active { display: flex; flex-direction: column; min-height: 0; }
+  </style>
+</head>
+<body class="h-screen flex bg-gray-50 overflow-hidden font-sans">
+
+  <!-- Sidebar -->
+  <aside class="hidden md:flex flex-col w-64 bg-[#0f172a] text-white flex-shrink-0">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-white/10">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-500/20">AI</div>
+      <div>
+        <span class="text-base font-semibold tracking-tight">AIMortgage</span>
+        <p class="text-[10px] text-slate-400 tracking-wide uppercase">Advisor Platform</p>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-0.5">
+      <a href="#" onclick="switchView('dashboard')" id="nav-dashboard"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-white/5 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
+        Dashboard
+      </a>
+      <a href="#" onclick="switchView('rates')" id="nav-rates"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-white/5 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        Rates
+      </a>
+      <a href="#" onclick="switchView('quotes')" id="nav-quotes"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-white/5 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Quotes
+      </a>
+      <a href="#" onclick="switchView('chat')" id="nav-chat"
+         class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm font-medium">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Chat
+      </a>
+    </nav>
+    <div class="px-6 py-4 border-t border-white/10 text-xs text-slate-500">
+      &copy; 2026 AIMortgage
+    </div>
+  </aside>
+
+  <!-- Content area -->
+  <div class="flex-1 flex flex-col min-w-0 min-h-0">
+
+    <!-- ==================== DASHBOARD VIEW ==================== -->
+    <section id="view-dashboard" class="view-section flex-col flex-1">
+      <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <h1 class="text-lg font-semibold text-gray-900">Dashboard</h1>
+        <button onclick="loadDashboard()" class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">Refresh</button>
+      </header>
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="max-w-5xl mx-auto space-y-6">
+          <!-- Stat cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="dashboard-stats">
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Rates</p>
+              <p class="mt-2 text-2xl font-bold text-gray-900" id="stat-total-rates">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Lowest Rate</p>
+              <p class="mt-2 text-2xl font-bold text-emerald-600" id="stat-lowest-rate">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Quotes</p>
+              <p class="mt-2 text-2xl font-bold text-gray-900" id="stat-total-quotes">—</p>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Rate Types</p>
+              <p class="mt-2 text-2xl font-bold text-blue-600" id="stat-rate-types">—</p>
+            </div>
+          </div>
+
+          <!-- Recent quotes -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div class="px-5 py-4 border-b border-gray-100">
+              <h2 class="text-sm font-semibold text-gray-900">Recent Quotes</h2>
+            </div>
+            <div id="dashboard-recent-quotes" class="p-5">
+              <p class="text-sm text-gray-400 text-center py-4">Loading...</p>
+            </div>
+          </div>
+
+          <!-- Rate overview by type -->
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div class="px-5 py-4 border-b border-gray-100">
+              <h2 class="text-sm font-semibold text-gray-900">Rates by Type</h2>
+            </div>
+            <div id="dashboard-rates-summary" class="p-5">
+              <p class="text-sm text-gray-400 text-center py-4">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RATES VIEW ==================== -->
+    <section id="view-rates" class="view-section flex-col flex-1">
+      <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <h1 class="text-lg font-semibold text-gray-900">Current Rates</h1>
+        <div class="flex items-center gap-2">
+          <select id="rates-filter" onchange="loadRates()" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+            <option value="">All Types</option>
+            <option value="variable">Variable</option>
+            <option value="fixed">Fixed</option>
+            <option value="interest_only">Interest Only</option>
+          </select>
+          <button onclick="loadRates()" class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">Refresh</button>
+        </div>
+      </header>
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="max-w-5xl mx-auto">
+          <div id="rates-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-sm text-gray-400 col-span-full text-center py-8">Loading rates...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== QUOTES VIEW ==================== -->
+    <section id="view-quotes" class="view-section flex-col flex-1">
+      <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <h1 class="text-lg font-semibold text-gray-900">Quotes</h1>
+        <button onclick="loadQuotes()" class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">Refresh</button>
+      </header>
+      <div id="quotes-content" class="flex-1 overflow-y-auto p-6">
+        <div class="max-w-4xl mx-auto">
+          <div id="quotes-empty" class="text-center py-16 text-gray-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p class="text-sm">No quotes yet. Ask the chatbot to create one!</p>
+          </div>
+          <div id="quotes-table" class="hidden">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="px-5 py-3">ID</th>
+                    <th class="px-5 py-3">Loan Type</th>
+                    <th class="px-5 py-3">Rate</th>
+                    <th class="px-5 py-3">Created</th>
+                  </tr>
+                </thead>
+                <tbody id="quotes-tbody" class="divide-y divide-gray-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CHAT VIEW ==================== -->
+    <section id="view-chat" class="view-section active flex-col flex-1">
+      <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="md:hidden w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-xs">AI</div>
+          <h1 class="text-lg font-semibold text-gray-900">Mortgage Advisor</h1>
+          <span class="flex items-center gap-1.5 text-xs text-gray-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+            Online
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 select-none">
+            <span class="text-xs text-gray-500">Full</span>
+            <button type="button" id="stream-toggle-btn" role="switch" aria-checked="true"
+              class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition"
+              onclick="toggleStreamMode()">
+              <span id="stream-toggle-knob" class="inline-block h-4 w-4 rounded-full bg-white shadow translate-x-4 transition"></span>
+            </button>
+            <span class="text-xs text-gray-500">Stream</span>
+          </div>
+          <button onclick="clearChat()" class="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition">
+            Clear
+          </button>
+        </div>
+      </header>
+
+      <!-- Messages -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-4">
+        <div class="msg-appear flex items-start gap-3 max-w-2xl">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V17a2.25 2.25 0 01-2.25 2.25H7.25A2.25 2.25 0 015 17v-2.5"/></svg>
+          </div>
+          <div class="bg-white text-gray-800 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm border border-gray-100">
+            Hello! I'm your AI Mortgage Advisor. I can help you with mortgage rates, pre-qualification, loan comparisons, and any questions about the home buying process. How can I assist you today?
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div id="typing-indicator" class="hidden px-4 md:px-6 pb-2">
+        <div class="flex items-start gap-3 max-w-2xl msg-appear">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.25 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V17a2.25 2.25 0 01-2.25 2.25H7.25A2.25 2.25 0 015 17v-2.5"/></svg>
+          </div>
+          <div class="bg-white rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1.5 shadow-sm border border-gray-100">
+            <span class="w-2 h-2 bg-gray-400 rounded-full dot-bounce"></span>
+            <span class="w-2 h-2 bg-gray-400 rounded-full dot-bounce"></span>
+            <span class="w-2 h-2 bg-gray-400 rounded-full dot-bounce"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="px-4 md:px-6 py-4 bg-white border-t border-gray-200 flex-shrink-0">
+        <form id="chat-form" class="flex items-end gap-3 max-w-3xl mx-auto" onsubmit="return false">
+          <textarea
+            id="chat-input"
+            rows="1"
+            placeholder="Ask about mortgage rates, pre-qualification, or loan options..."
+            class="flex-1 resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition placeholder:text-gray-400"
+          ></textarea>
+          <button
+            id="send-btn"
+            type="submit"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 py-3 transition flex-shrink-0 shadow-sm"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+          </button>
+        </form>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const messagesEl = document.getElementById('chat-messages');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const typingIndicator = document.getElementById('typing-indicator');
+
+    let useStreamMode = true;
+    let history = [];
+    let isStreaming = false;
+
+    const LOAN_LABELS = { variable: 'Variable', fixed: 'Fixed', interest_only: 'Interest Only' };
+    const LOAN_COLORS = {
+      variable:      { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', accent: 'text-emerald-600' },
+      fixed:         { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-700',       accent: 'text-blue-600' },
+      interest_only: { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   badge: 'bg-amber-100 text-amber-700',     accent: 'text-amber-600' },
+    };
+
+    // ==================== VIEW SWITCHING ====================
+    const navActive = 'nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/10 text-white text-sm font-medium';
+    const navInactive = 'nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:bg-white/5 transition';
+
+    function switchView(view) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-link').forEach(el => el.className = navInactive);
+
+      document.getElementById('view-' + view).classList.add('active');
+      document.getElementById('nav-' + view).className = navActive;
+
+      if (view === 'dashboard') loadDashboard();
+      if (view === 'rates') loadRates();
+      if (view === 'quotes') loadQuotes();
+    }
+
+    // ==================== DASHBOARD ====================
+    async function loadDashboard() {
+      try {
+        const [ratesRes, quotesRes] = await Promise.all([fetch('/api/rates'), fetch('/api/quotes')]);
+        const rates = await ratesRes.json();
+        const quotes = await quotesRes.json();
+
+        document.getElementById('stat-total-rates').textContent = rates.length;
+        document.getElementById('stat-lowest-rate').textContent = rates.length ? Math.min(...rates.map(r => r.rate)).toFixed(2) + '%' : '—';
+        document.getElementById('stat-total-quotes').textContent = quotes.length;
+        const types = new Set(rates.map(r => r.loan_type));
+        document.getElementById('stat-rate-types').textContent = types.size;
+
+        // Recent quotes
+        const recentEl = document.getElementById('dashboard-recent-quotes');
+        if (quotes.length === 0) {
+          recentEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No quotes created yet</p>';
+        } else {
+          const recent = quotes.slice(0, 5);
+          recentEl.innerHTML = `<div class="space-y-2">${recent.map(q => {
+            const c = LOAN_COLORS[q.loan_type] || LOAN_COLORS.variable;
+            return `<div class="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 transition">
+              <div class="flex items-center gap-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.badge}">${LOAN_LABELS[q.loan_type] || q.loan_type}</span>
+                <span class="text-sm font-semibold text-gray-900">${q.rate}%</span>
+              </div>
+              <span class="text-xs text-gray-400">${new Date(q.created_at + 'Z').toLocaleDateString()}</span>
+            </div>`;
+          }).join('')}</div>`;
+        }
+
+        // Rates summary by type
+        const summaryEl = document.getElementById('dashboard-rates-summary');
+        const grouped = {};
+        rates.forEach(r => {
+          if (!grouped[r.loan_type]) grouped[r.loan_type] = [];
+          grouped[r.loan_type].push(r);
+        });
+        summaryEl.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">${Object.entries(grouped).map(([type, items]) => {
+          const c = LOAN_COLORS[type] || LOAN_COLORS.variable;
+          const min = Math.min(...items.map(r => r.rate));
+          const max = Math.max(...items.map(r => r.rate));
+          return `<div class="rounded-lg ${c.bg} border ${c.border} p-4">
+            <p class="text-xs font-medium ${c.text} uppercase tracking-wide">${LOAN_LABELS[type] || type}</p>
+            <p class="mt-1 text-xl font-bold ${c.accent}">${min.toFixed(2)}%${min !== max ? ' – ' + max.toFixed(2) + '%' : ''}</p>
+            <p class="mt-1 text-xs text-gray-500">${items.length} product${items.length > 1 ? 's' : ''}</p>
+          </div>`;
+        }).join('')}</div>`;
+      } catch (err) {
+        document.getElementById('dashboard-recent-quotes').innerHTML = '<p class="text-sm text-red-500 text-center py-4">Failed to load dashboard data</p>';
+      }
+    }
+
+    // ==================== RATES ====================
+    async function loadRates() {
+      const grid = document.getElementById('rates-grid');
+      try {
+        const res = await fetch('/api/rates');
+        let rates = await res.json();
+
+        const filter = document.getElementById('rates-filter').value;
+        if (filter) rates = rates.filter(r => r.loan_type === filter);
+
+        if (rates.length === 0) {
+          grid.innerHTML = '<p class="text-sm text-gray-400 col-span-full text-center py-8">No rates found</p>';
+          return;
+        }
+
+        grid.innerHTML = rates.map(r => {
+          const c = LOAN_COLORS[r.loan_type] || LOAN_COLORS.variable;
+          return `<div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition p-5 flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.badge}">${LOAN_LABELS[r.loan_type] || r.loan_type}</span>
+              ${r.term_years ? `<span class="text-xs text-gray-500">${r.term_years} yr${r.term_years > 1 ? 's' : ''}</span>` : '<span class="text-xs text-gray-400">Ongoing</span>'}
+            </div>
+            <p class="text-3xl font-bold text-gray-900">${r.rate}<span class="text-lg">%</span></p>
+            ${r.comparison_rate ? `<p class="text-xs text-gray-400 mt-0.5">Comparison: ${r.comparison_rate}%</p>` : ''}
+            <p class="text-sm text-gray-600 mt-3 flex-1">${r.description || ''}</p>
+            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
+              <span>$${(r.min_loan_amount || 0).toLocaleString()} – $${(r.max_loan_amount || 0).toLocaleString()}</span>
+              ${r.max_lvr ? `<span>Max LVR ${r.max_lvr}%</span>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        grid.innerHTML = '<p class="text-sm text-red-500 col-span-full text-center py-8">Failed to load rates</p>';
+      }
+    }
+
+    // ==================== QUOTES ====================
+    async function loadQuotes() {
+      const tbody = document.getElementById('quotes-tbody');
+      const emptyState = document.getElementById('quotes-empty');
+      const table = document.getElementById('quotes-table');
+
+      try {
+        const res = await fetch('/api/quotes');
+        const quotes = await res.json();
+
+        if (quotes.length === 0) {
+          emptyState.classList.remove('hidden');
+          table.classList.add('hidden');
+          return;
+        }
+
+        emptyState.classList.add('hidden');
+        table.classList.remove('hidden');
+
+        tbody.innerHTML = quotes.map(q => {
+          const c = LOAN_COLORS[q.loan_type] || LOAN_COLORS.variable;
+          return `<tr class="hover:bg-gray-50 transition">
+            <td class="px-5 py-3.5 font-mono text-xs text-gray-500">#${q.id}</td>
+            <td class="px-5 py-3.5">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${c.badge}">${LOAN_LABELS[q.loan_type] || q.loan_type}</span>
+            </td>
+            <td class="px-5 py-3.5 font-semibold text-gray-900">${q.rate}%</td>
+            <td class="px-5 py-3.5 text-gray-500 text-xs">${new Date(q.created_at + 'Z').toLocaleString()}</td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-5 py-6 text-center text-red-500 text-sm">Failed to load quotes</td></tr>';
+        table.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+      }
+    }
+
+    // ==================== CHAT ====================
+    function toggleStreamMode() {
+      useStreamMode = !useStreamMode;
+      const btn = document.getElementById('stream-toggle-btn');
+      const knob = document.getElementById('stream-toggle-knob');
+      btn.setAttribute('aria-checked', useStreamMode);
+      btn.className = 'relative inline-flex h-5 w-9 items-center rounded-full transition ' + (useStreamMode ? 'bg-blue-600' : 'bg-gray-300');
+      knob.className = 'inline-block h-4 w-4 rounded-full bg-white shadow transition ' + (useStreamMode ? 'translate-x-4' : 'translate-x-0.5');
+    }
+
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    sendBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      sendMessage();
+    });
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text || isStreaming) return;
+
+      isStreaming = true;
+      sendBtn.disabled = true;
+      input.value = '';
+      input.style.height = 'auto';
+
+      appendMessage('user', text);
+      history.push({ role: 'user', content: text });
+
+      typingIndicator.classList.remove('hidden');
+      scrollToBottom();
+
+      const assistantBubble = createAssistantBubble();
+      let fullResponse = '';
+      const useStream = useStreamMode;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, history: history.slice(0, -1), stream: useStream }),
+        });
+
+        typingIndicator.classList.add('hidden');
+        messagesEl.appendChild(assistantBubble.wrapper);
+        scrollToBottom();
+
+        if (useStream) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data: ')) continue;
+              const jsonStr = trimmed.slice(6);
+              try {
+                const data = JSON.parse(jsonStr);
+                if (data.done) {
+                  history.push({ role: 'assistant', content: fullResponse });
+                  assistantBubble.content.innerHTML = renderMarkdown(fullResponse);
+                } else if (data.token) {
+                  fullResponse += data.token;
+                  assistantBubble.content.textContent = fullResponse;
+                  scrollToBottom();
+                }
+              } catch (_) {}
+            }
+          }
+        } else {
+          const data = await res.json();
+          fullResponse = data.response;
+          history.push({ role: 'assistant', content: fullResponse });
+          assistantBubble.content.innerHTML = renderMarkdown(fullResponse);
+          scrollToBottom();
+        }
+      } catch (err) {
+        typingIndicator.classList.add('hidden');
+        if (!fullResponse) {
+          messagesEl.appendChild(assistantBubble.wrapper);
+        }
+        assistantBubble.content.innerHTML = '<span class="text-red-500">Sorry, something went wrong. Please try again.</span>';
+      }
+
+      isStreaming = false;
+      sendBtn.disabled = false;
+      input.focus();
+      scrollToBottom();
+    }
+
+    function appendMessage(role, text) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'msg-appear';
+
+      if (role === 'user') {
+        wrapper.className += ' flex justify-end';
+        wrapper.innerHTML = `
+          <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl rounded-tr-md px-4 py-3 text-sm leading-relaxed max-w-2xl shadow-sm">
+            ${escapeHtml(text)}
+          </div>`;
+      } else {
+        wrapper.className += ' flex items-start gap-3 max-w-2xl';
+        wrapper.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V17a2.25 2.25 0 01-2.25 2.25H7.25A2.25 2.25 0 015 17v-2.5"/></svg>
+          </div>
+          <div class="bg-white text-gray-800 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm border border-gray-100">
+            ${renderMarkdown(text)}
+          </div>`;
+      }
+
+      messagesEl.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    function createAssistantBubble() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'msg-appear flex items-start gap-3 max-w-2xl';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-sm';
+      avatar.innerHTML = '<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V17a2.25 2.25 0 01-2.25 2.25H7.25A2.25 2.25 0 015 17v-2.5"/></svg>';
+
+      const content = document.createElement('div');
+      content.className = 'bg-white text-gray-800 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm border border-gray-100';
+
+      wrapper.appendChild(avatar);
+      wrapper.appendChild(content);
+
+      return { wrapper, content };
+    }
+
+    function renderMarkdown(text) {
+      let html = escapeHtml(text);
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
+      html = html.replace(/^\s*[-*]\s+(.+)/gm, '<li class="ml-4 list-disc">$1</li>');
+      html = html.replace(/(<li.*<\/li>\n?)+/g, (match) => `<ul class="space-y-1 my-1">${match}</ul>`);
+      html = html.replace(/\n/g, '<br>');
+      return html;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      });
+    }
+
+    function clearChat() {
+      history = [];
+      messagesEl.innerHTML = '';
+      const welcome = document.createElement('div');
+      welcome.className = 'msg-appear flex items-start gap-3 max-w-2xl';
+      welcome.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V17a2.25 2.25 0 01-2.25 2.25H7.25A2.25 2.25 0 015 17v-2.5"/></svg>
+        </div>
+        <div class="bg-white text-gray-800 rounded-2xl rounded-tl-md px-4 py-3 text-sm leading-relaxed shadow-sm border border-gray-100">
+          Hello! I'm your AI Mortgage Advisor. I can help you with mortgage rates, pre-qualification, loan comparisons, and any questions about the home buying process. How can I assist you today?
+        </div>`;
+      messagesEl.appendChild(welcome);
+    }
+  </script>
+</body>
+</html>
