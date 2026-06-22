@@ -21,6 +21,8 @@ if _env_path.exists():
 DB_PATH = Path(__file__).parent / "mortgage.db"
 PROMPT_LOG = Path(__file__).parent / "prompts.log"
 
+import traceback
+
 from chat.agent import MortgageAgent
 from llm.bedrock_adapter import BedrockAdapter
 
@@ -30,15 +32,26 @@ agent: MortgageAgent | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global agent
-    llm = BedrockAdapter(
-        model_id=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
-        region=os.getenv("AWS_REGION", "ap-southeast-2"),
-    )
-    agent = MortgageAgent(llm)
-    await agent.start()
-    print("Mortgage agent started")
+    try:
+        llm = BedrockAdapter(
+            model_id=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-6"),
+            region=os.getenv("AWS_REGION", "ap-southeast-2"),
+        )
+        agent = MortgageAgent(llm)
+        await agent.start()
+        print("Mortgage agent started")
+    except Exception as e:
+        print("LIFESPAN STARTUP EXCEPTION DETECTED:")
+        traceback.print_exc()
+        raise e
     yield
-    await agent.stop()
+    try:
+        if agent:
+            await agent.stop()
+    except Exception as e:
+        print("LIFESPAN SHUTDOWN EXCEPTION DETECTED:")
+        traceback.print_exc()
+
 
 
 app = FastAPI(lifespan=lifespan)
