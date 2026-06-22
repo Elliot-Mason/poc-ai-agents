@@ -1,9 +1,11 @@
+import asyncio
 import json
 import os
 from collections.abc import AsyncIterator
 from datetime import datetime
 from pathlib import Path
 
+import boto3
 import httpx
 
 _CONVERSE_URL = "https://bedrock-runtime.{region}.amazonaws.com/model/{model_id}/converse"
@@ -24,38 +26,67 @@ class BedrockAdapter:
         self.api_key = api_key or os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "")
         self.client = httpx.AsyncClient(timeout=120.0)
         self._last_tool_config: dict | None = None
+        self._boto3_client = None
 
     async def chat(
         self,
         messages: list[dict],
         tools: list[dict] | None = None,
     ) -> dict:
-        url = _CONVERSE_URL.format(region=self.region, model_id=self.model_id)
         system_prompts, bedrock_messages = self._convert_messages(messages)
-        payload: dict = {"messages": bedrock_messages}
-        if system_prompts:
-            payload["system"] = system_prompts
-
+        tool_config = None
         if tools:
             self._last_tool_config = self._convert_tool_config(tools)
-            payload["toolConfig"] = self._last_tool_config
+            tool_config = self._last_tool_config
         elif self._last_tool_config:
-            payload["toolConfig"] = self._last_tool_config
+            tool_config = self._last_tool_config
 
-        resp = await self.client.post(
-            url,
-            json=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-        )
-        if resp.status_code != 200:
-            print(f"Bedrock error {resp.status_code}: {resp.text}")
-        resp.raise_for_status()
-        parsed = self._parse_response(resp.json())
-        self._log_output(parsed)
-        return parsed
+        if self.api_key:
+            url = _CONVERSE_URL.format(region=self.region, model_id=self.model_id)
+            payload: dict = {"messages": bedrock_messages}
+            if system_prompts:
+                payload["system"] = system_prompts
+            if tool_config:
+                payload["toolConfig"] = tool_config
+
+            resp = await self.client.post(
+                url,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self.api_key}",
+                },
+            )
+            if resp.status_code != 200:
+                print(f"Bedrock error {resp.status_code}: {resp.text}")
+            resp.raise_for_status()
+            parsed = self._parse_response(resp.json())
+            self._log_output(parsed)
+            return parsed
+        else:
+            if not self._boto3_client:
+                aws_region = os.environ.get("AWS_REGION", self.region)
+                self._boto3_client = boto3.client(
+                    service_name="bedrock-runtime",
+                    region_name=aws_region,
+                )
+
+            kwargs = {
+                "modelId": self.model_id,
+                "messages": bedrock_messages,
+            }
+            if system_prompts:
+                kwargs["system"] = system_prompts
+            if tool_config:
+                kwargs["toolConfig"] = tool_config
+
+            response = await asyncio.to_thread(
+                self._boto3_client.converse,
+                **kwargs
+            )
+            parsed = self._parse_response(response)
+            self._log_output(parsed)
+            return parsed
 
     async def chat_stream(
         self,

@@ -2,3 +2,4 @@ mcp
 httpx
 fastapi
 uvicorn
+boto3
