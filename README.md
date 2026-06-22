@@ -20,11 +20,11 @@ Required values:
 
 ```env
 AWS_BEARER_TOKEN_BEDROCK=replace-me
-BEDROCK_MODEL_ID=global.anthropic.claude-sonnet-4-6
+BEDROCK_MODEL_ID=anthropic.claude-sonnet-4-5-20250929-v1:0
 AWS_REGION=ap-southeast-2
 ```
 
-The model name is the main value most users should change. The apps default to `global.anthropic.claude-sonnet-4-6` and `ap-southeast-2` when the variables are omitted.
+The model name is the main value most users should change. The apps default to `anthropic.claude-sonnet-4-5-20250929-v1:0` and `ap-southeast-2` when the variables are omitted.
 
 ## Run A Variant
 

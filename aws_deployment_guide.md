@@ -124,7 +124,7 @@ For each of the three applications, register a new Task Definition with AWS ECS:
    - **Image**: `<YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_AWS_REGION>.amazonaws.com/<APP-NAME>-unsafe:latest`
    - **Port Mappings**: Port `8080` (TCP).
    - **Environment Variables**:
-     - `BEDROCK_MODEL_ID`: `global.anthropic.claude-sonnet-4-6` (or another model ID)
+     - `BEDROCK_MODEL_ID`: `anthropic.claude-sonnet-4-5-20250929-v1:0` (or another model ID)
      - `AWS_REGION`: `<YOUR_AWS_REGION>` (e.g., `us-east-1` or `ap-southeast-2`)
      - Do **NOT** set `AWS_BEARER_TOKEN_BEDROCK`. When omitted, the app automatically switches to the `boto3` IAM task-role credential path.
 
@@ -181,7 +181,7 @@ aws ecs register-task-definition --cli-input-json file://aimortgage-task.json
         },
         {
           "name": "BEDROCK_MODEL_ID",
-          "value": "global.anthropic.claude-sonnet-4-6"
+          "value": "anthropic.claude-sonnet-4-5-20250929-v1:0"
         }
       ],
       "logConfiguration": {
@@ -231,7 +231,7 @@ aws ecs register-task-definition --cli-input-json file://aimortgage-task.json
         },
         {
           "name": "BEDROCK_MODEL_ID",
-          "value": "global.anthropic.claude-sonnet-4-6"
+          "value": "anthropic.claude-sonnet-4-5-20250929-v1:0"
         }
       ],
       "logConfiguration": {
@@ -281,7 +281,7 @@ aws ecs register-task-definition --cli-input-json file://aimortgage-task.json
         },
         {
           "name": "BEDROCK_MODEL_ID",
-          "value": "global.anthropic.claude-sonnet-4-6"
+          "value": "anthropic.claude-sonnet-4-5-20250929-v1:0"
         }
       ],
       "logConfiguration": {

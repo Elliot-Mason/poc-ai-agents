@@ -13,7 +13,7 @@ _CONVERSE_STREAM_URL = "https://bedrock-runtime.{region}.amazonaws.com/model/{mo
 class BedrockAdapter:
     def __init__(
         self,
-        model_id: str = "global.anthropic.claude-sonnet-4-6",
+        model_id: str = "anthropic.claude-sonnet-4-5-20250929-v1:0",
         region: str = "us-east-1",
         api_key: str | None = None,
     ) -> None:

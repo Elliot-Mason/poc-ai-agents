@@ -241,7 +241,7 @@ async def main():
                 os.environ.setdefault(key.strip(), value.strip())
 
     parser = argparse.ArgumentParser(description="Payroll AI Agent")
-    parser.add_argument("--model", default=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-6"))
+    parser.add_argument("--model", default=os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-5-20250929-v1:0"))
     parser.add_argument("--region", default=os.getenv("AWS_REGION", "ap-southeast-2"))
     args = parser.parse_args()
 
