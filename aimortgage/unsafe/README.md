@@ -66,7 +66,7 @@ An AI-powered mortgage advisor chatbot built with **FastAPI**, **MCP (Model Cont
 
    ```env
    AWS_BEARER_TOKEN_BEDROCK=replace-me
-   BEDROCK_MODEL_ID=au.anthropic.claude-sonnet-4-5-20250929-v1:0
+   BEDROCK_MODEL_ID=global.anthropic.claude-sonnet-4-5-20250929-v1:0
    AWS_REGION=ap-southeast-2
    ```
 
@@ -93,7 +93,7 @@ Open [http://localhost:8000](http://localhost:8000) in your browser to use the c
 ```bash
 python -m chat.agent
 python -m chat.agent --model anthropic.claude-3-haiku-20240307-v1:0
-python -m chat.agent --model au.anthropic.claude-sonnet-4-5-20250929-v1:0 --region ap-southeast-2
+python -m chat.agent --model global.anthropic.claude-sonnet-4-5-20250929-v1:0 --region ap-southeast-2
 ```
 
 ## Usage

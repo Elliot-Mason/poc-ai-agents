@@ -32,7 +32,7 @@ agent: CreditCardAgent | None = None
 async def lifespan(app: FastAPI):
     global agent
     llm = BedrockAdapter(
-        model_id=os.getenv("BEDROCK_MODEL_ID", "au.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+        model_id=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
         region=os.getenv("AWS_REGION", "ap-southeast-2"),
     )
     agent = CreditCardAgent(llm)
