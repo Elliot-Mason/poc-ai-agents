@@ -29,7 +29,7 @@ if os.path.exists(_env_path):
 AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 LLM_MODEL = os.getenv(
     "BEDROCK_MODEL_ID",
-    os.getenv("LLM_MODEL", "anthropic.claude-sonnet-4-5-20250929-v1:0"),
+    os.getenv("LLM_MODEL", "au.anthropic.claude-sonnet-4-5-20250929-v1:0"),
 )
 
 bedrock = boto3.client(
