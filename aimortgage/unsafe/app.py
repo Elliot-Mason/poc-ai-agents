@@ -72,6 +72,8 @@ async def chat(request: Request):
     body = await request.json()
     # Robust key resolution to support multiple testing platform formats
     message = None
+    history = body.get("history", [])
+
     if "message" in body:
         message = body["message"]
     elif "prompt" in body:
@@ -85,10 +87,17 @@ async def chat(request: Request):
         else:
             message = str(last_msg)
 
+        # Extract history from preceding messages if not already provided
+        if not history:
+            history = []
+            for m in body["messages"][:-1]:
+                if isinstance(m, dict):
+                    role = m.get("role", "user")
+                    content = m.get("content", m.get("text", ""))
+                    history.append({"role": role, "content": content})
+
     if message is None:
         message = ""
-
-    history = body.get("history", [])
     stream = body.get("stream", True)
 
     with open(PROMPT_LOG, "a") as f:
