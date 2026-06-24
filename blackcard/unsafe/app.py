@@ -108,6 +108,7 @@ async def chat(request: Request):
     response_text = "".join(tokens)
     return {
         "response": response_text,
+        "message": response_text,
         "choices": [
             {
                 "message": {

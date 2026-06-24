@@ -230,6 +230,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    message: str | None = None
     choices: list[dict] | None = None
 
 
@@ -341,6 +342,7 @@ async def chat(request: Request):
 
     return ChatResponse(
         reply=reply_text,
+        message=reply_text,
         choices=[
             {
                 "message": {
