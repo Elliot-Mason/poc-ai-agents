@@ -230,6 +230,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    choices: list[dict] | None = None
 
 
 def _execute_tool_call(name: str, arguments: dict):
@@ -338,7 +339,17 @@ async def chat(request: Request):
         if "text" in block:
             reply_text += block["text"]
 
-    return ChatResponse(reply=reply_text)
+    return ChatResponse(
+        reply=reply_text,
+        choices=[
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": reply_text
+                }
+            }
+        ]
+    )
 
 
 @app.get("/applications")

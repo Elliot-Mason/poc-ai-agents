@@ -105,7 +105,18 @@ async def chat(request: Request):
     tokens = []
     async for token in agent.stream_chat(message, history=history):
         tokens.append(token)
-    return {"response": "".join(tokens)}
+    response_text = "".join(tokens)
+    return {
+        "response": response_text,
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": response_text
+                }
+            }
+        ]
+    }
 
 
 @app.get("/api/logs")
