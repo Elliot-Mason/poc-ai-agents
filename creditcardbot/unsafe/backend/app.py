@@ -4,7 +4,7 @@ import os
 
 import boto3
 from botocore.config import Config as BotoConfig
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -255,8 +255,33 @@ def _to_bedrock_messages(messages: list[dict]) -> list[dict]:
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    messages = _to_bedrock_messages([m.model_dump() for m in req.messages])
+async def chat(request: Request):
+    body = await request.json()
+    raw_messages = []
+    if "messages" in body and isinstance(body["messages"], list):
+        for m in body["messages"]:
+            if isinstance(m, dict):
+                raw_messages.append({
+                    "role": m.get("role", "user"),
+                    "content": m.get("content", m.get("text", m.get("message", "")))
+                })
+            else:
+                raw_messages.append({"role": "user", "content": str(m)})
+    else:
+        # Fallback to single message formats
+        message = None
+        if "message" in body:
+            message = body["message"]
+        elif "prompt" in body:
+            message = body["prompt"]
+        elif "text" in body:
+            message = body["text"]
+
+        if message is None:
+            message = ""
+        raw_messages.append({"role": "user", "content": message})
+
+    messages = _to_bedrock_messages(raw_messages)
 
     try:
         response = bedrock.converse(

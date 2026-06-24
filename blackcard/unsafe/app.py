@@ -70,7 +70,24 @@ app.add_middleware(
 @app.post("/api/chat")
 async def chat(request: Request):
     body = await request.json()
-    message = body["message"]
+    # Robust key resolution to support multiple testing platform formats
+    message = None
+    if "message" in body:
+        message = body["message"]
+    elif "prompt" in body:
+        message = body["prompt"]
+    elif "text" in body:
+        message = body["text"]
+    elif "messages" in body and isinstance(body["messages"], list) and len(body["messages"]) > 0:
+        last_msg = body["messages"][-1]
+        if isinstance(last_msg, dict):
+            message = last_msg.get("content", last_msg.get("text", ""))
+        else:
+            message = str(last_msg)
+
+    if message is None:
+        message = ""
+
     history = body.get("history", [])
     stream = body.get("stream", True)
 
