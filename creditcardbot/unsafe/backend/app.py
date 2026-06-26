@@ -1,3 +1,4 @@
+import asyncio
 import json
 import sys
 import os
@@ -38,7 +39,10 @@ bedrock = boto3.client(
     config=BotoConfig(
         connect_timeout=120,
         read_timeout=120,
-        retries={"max_attempts": 2},
+        retries={
+            "max_attempts": 10,
+            "mode": "standard"
+        },
     ),
 )
 
@@ -256,6 +260,37 @@ def _to_bedrock_messages(messages: list[dict]) -> list[dict]:
     return bedrock_msgs
 
 
+async def _converse_with_retry(messages, system_prompt, tool_config=None):
+    max_retries = 8
+    base_delay = 1.0
+    for attempt in range(max_retries):
+        try:
+            kwargs = {
+                "modelId": LLM_MODEL,
+                "messages": messages,
+                "system": [{"text": system_prompt}],
+            }
+            if tool_config:
+                kwargs["toolConfig"] = tool_config
+                
+            response = await asyncio.to_thread(
+                bedrock.converse,
+                **kwargs
+            )
+            return response
+        except Exception as e:
+            err_msg = str(e).lower()
+            is_throttled = "throttling" in err_msg or "too many requests" in err_msg or "429" in err_msg or "limit" in err_msg
+            if is_throttled and attempt < max_retries - 1:
+                sleep_time = base_delay * (2 ** attempt)
+                print(f"Bedrock throttled: {e}. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
+                await asyncio.sleep(sleep_time)
+                continue
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: Request):
     body = await request.json()
@@ -285,17 +320,7 @@ async def chat(request: Request):
 
     messages = _to_bedrock_messages(raw_messages)
 
-    try:
-        response = bedrock.converse(
-            modelId=LLM_MODEL,
-            messages=messages,
-            system=[{"text": SYSTEM_PROMPT}],
-            toolConfig=TOOL_CONFIG,
-        )
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
+    response = await _converse_with_retry(messages, SYSTEM_PROMPT, TOOL_CONFIG)
 
     output_message = response["output"]["message"]
     messages.append(output_message)
@@ -322,17 +347,7 @@ async def chat(request: Request):
 
         messages.append({"role": "user", "content": tool_results})
 
-        try:
-            response = bedrock.converse(
-                modelId=LLM_MODEL,
-                messages=messages,
-                system=[{"text": SYSTEM_PROMPT}],
-                toolConfig=TOOL_CONFIG,
-            )
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
+        response = await _converse_with_retry(messages, SYSTEM_PROMPT, TOOL_CONFIG)
 
         output_message = response["output"]["message"]
         messages.append(output_message)

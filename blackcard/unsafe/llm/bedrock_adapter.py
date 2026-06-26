@@ -41,52 +41,72 @@ class BedrockAdapter:
         elif self._last_tool_config:
             tool_config = self._last_tool_config
 
-        if self.api_key:
-            url = _CONVERSE_URL.format(region=self.region, model_id=self.model_id)
-            payload: dict = {"messages": bedrock_messages}
-            if system_prompts:
-                payload["system"] = system_prompts
-            if tool_config:
-                payload["toolConfig"] = tool_config
+        max_retries = 8
+        base_delay = 1.0
+        for attempt in range(max_retries):
+            try:
+                if self.api_key:
+                    url = _CONVERSE_URL.format(region=self.region, model_id=self.model_id)
+                    payload: dict = {"messages": bedrock_messages}
+                    if system_prompts:
+                        payload["system"] = system_prompts
+                    if tool_config:
+                        payload["toolConfig"] = tool_config
 
-            resp = await self.client.post(
-                url,
-                json=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self.api_key}",
-                },
-            )
-            if resp.status_code != 200:
-                print(f"Bedrock error {resp.status_code}: {resp.text}")
-            resp.raise_for_status()
-            parsed = self._parse_response(resp.json())
-            self._log_output(parsed)
-            return parsed
-        else:
-            if not self._boto3_client:
-                aws_region = os.environ.get("AWS_REGION", self.region)
-                self._boto3_client = boto3.client(
-                    service_name="bedrock-runtime",
-                    region_name=aws_region,
-                )
+                    resp = await self.client.post(
+                        url,
+                        json=payload,
+                        headers={
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {self.api_key}",
+                        },
+                    )
+                    if resp.status_code != 200:
+                        print(f"Bedrock error {resp.status_code}: {resp.text}")
+                    resp.raise_for_status()
+                    parsed = self._parse_response(resp.json())
+                    self._log_output(parsed)
+                    return parsed
+                else:
+                    from botocore.config import Config
+                    if not self._boto3_client:
+                        aws_region = os.environ.get("AWS_REGION", self.region)
+                        self._boto3_client = boto3.client(
+                            service_name="bedrock-runtime",
+                            region_name=aws_region,
+                            config=Config(
+                                retries={
+                                    'max_attempts': 10,
+                                    'mode': 'standard'
+                                }
+                            )
+                        )
 
-            kwargs = {
-                "modelId": self.model_id,
-                "messages": bedrock_messages,
-            }
-            if system_prompts:
-                kwargs["system"] = system_prompts
-            if tool_config:
-                kwargs["toolConfig"] = tool_config
+                    kwargs = {
+                        "modelId": self.model_id,
+                        "messages": bedrock_messages,
+                    }
+                    if system_prompts:
+                        kwargs["system"] = system_prompts
+                    if tool_config:
+                        kwargs["toolConfig"] = tool_config
 
-            response = await asyncio.to_thread(
-                self._boto3_client.converse,
-                **kwargs
-            )
-            parsed = self._parse_response(response)
-            self._log_output(parsed)
-            return parsed
+                    response = await asyncio.to_thread(
+                        self._boto3_client.converse,
+                        **kwargs
+                    )
+                    parsed = self._parse_response(response)
+                    self._log_output(parsed)
+                    return parsed
+            except Exception as e:
+                err_msg = str(e).lower()
+                is_throttled = "throttling" in err_msg or "too many requests" in err_msg or "429" in err_msg or "limit" in err_msg
+                if is_throttled and attempt < max_retries - 1:
+                    sleep_time = base_delay * (2 ** attempt)
+                    print(f"Bedrock throttled: {e}. Retrying in {sleep_time} seconds (attempt {attempt + 1}/{max_retries})...")
+                    await asyncio.sleep(sleep_time)
+                    continue
+                raise e
 
     async def chat_stream(
         self,
