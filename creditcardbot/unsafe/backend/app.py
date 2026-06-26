@@ -293,6 +293,8 @@ async def chat(request: Request):
             toolConfig=TOOL_CONFIG,
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
 
     output_message = response["output"]["message"]
@@ -328,6 +330,8 @@ async def chat(request: Request):
                 toolConfig=TOOL_CONFIG,
             )
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
 
         output_message = response["output"]["message"]

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -69,64 +69,74 @@ app.add_middleware(
 
 @app.post("/api/chat")
 async def chat(request: Request):
-    body = await request.json()
-    # Robust key resolution to support multiple testing platform formats
-    message = None
-    history = body.get("history", [])
+    try:
+        body = await request.json()
+        # Robust key resolution to support multiple testing platform formats
+        message = None
+        history = body.get("history", [])
 
-    if "message" in body:
-        message = body["message"]
-    elif "prompt" in body:
-        message = body["prompt"]
-    elif "text" in body:
-        message = body["text"]
-    elif "messages" in body and isinstance(body["messages"], list) and len(body["messages"]) > 0:
-        last_msg = body["messages"][-1]
-        if isinstance(last_msg, dict):
-            message = last_msg.get("content", last_msg.get("text", ""))
-        else:
-            message = str(last_msg)
+        if "message" in body:
+            message = body["message"]
+        elif "prompt" in body:
+            message = body["prompt"]
+        elif "text" in body:
+            message = body["text"]
+        elif "messages" in body and isinstance(body["messages"], list) and len(body["messages"]) > 0:
+            last_msg = body["messages"][-1]
+            if isinstance(last_msg, dict):
+                message = last_msg.get("content", last_msg.get("text", ""))
+            else:
+                message = str(last_msg)
 
-        # Extract history from preceding messages if not already provided
-        if not history:
-            history = []
-            for m in body["messages"][:-1]:
-                if isinstance(m, dict):
-                    role = m.get("role", "user")
-                    content = m.get("content", m.get("text", ""))
-                    history.append({"role": role, "content": content})
+            # Extract history from preceding messages if not already provided
+            if not history:
+                history = []
+                for m in body["messages"][:-1]:
+                    if isinstance(m, dict):
+                        role = m.get("role", "user")
+                        content = m.get("content", m.get("text", ""))
+                        history.append({"role": role, "content": content})
 
-    if message is None:
-        message = ""
-    stream = body.get("stream", True)
+        if message is None:
+            message = ""
+        stream = body.get("stream", True)
 
-    with open(PROMPT_LOG, "a") as f:
-        f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
+        with open(PROMPT_LOG, "a") as f:
+            f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
 
-    if stream:
-        async def event_stream():
-            async for token in agent.stream_chat(message, history=history):
-                yield f"data: {json.dumps({'token': token})}\n\n"
-            yield f"data: {json.dumps({'done': True})}\n\n"
+        if stream:
+            async def event_stream():
+                try:
+                    async for token in agent.stream_chat(message, history=history):
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-    tokens = []
-    async for token in agent.stream_chat(message, history=history):
-        tokens.append(token)
-    response_text = "".join(tokens)
-    return {
-        "response": response_text,
-        "message": response_text,
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": response_text
+        tokens = []
+        async for token in agent.stream_chat(message, history=history):
+            tokens.append(token)
+        response_text = "".join(tokens)
+        return {
+            "response": response_text,
+            "message": response_text,
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": response_text
+                    }
                 }
-            }
-        ]
-    }
+            ]
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/logs")
