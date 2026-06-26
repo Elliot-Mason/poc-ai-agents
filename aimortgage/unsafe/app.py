@@ -99,7 +99,7 @@ async def chat(request: Request):
 
         if message is None:
             message = ""
-        stream = body.get("stream", True)
+        stream = body.get("stream", False)
 
         with open(PROMPT_LOG, "a") as f:
             f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
