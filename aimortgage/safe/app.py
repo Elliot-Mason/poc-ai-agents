@@ -84,7 +84,17 @@ async def chat(request: Request):
         elif "messages" in body and isinstance(body["messages"], list) and len(body["messages"]) > 0:
             last_msg = body["messages"][-1]
             if isinstance(last_msg, dict):
-                message = last_msg.get("content", last_msg.get("text", ""))
+                raw_content = last_msg.get("content", last_msg.get("text", ""))
+                if isinstance(raw_content, list):
+                    text_parts = []
+                    for block in raw_content:
+                        if isinstance(block, dict):
+                            text_parts.append(block.get("text", ""))
+                        else:
+                            text_parts.append(str(block))
+                    message = "".join(text_parts)
+                else:
+                    message = str(raw_content)
             else:
                 message = str(last_msg)
 
@@ -94,8 +104,18 @@ async def chat(request: Request):
                 for m in body["messages"][:-1]:
                     if isinstance(m, dict):
                         role = m.get("role", "user")
-                        content = m.get("content", m.get("text", ""))
-                        history.append({"role": role, "content": content})
+                        raw_content = m.get("content", m.get("text", ""))
+                        if isinstance(raw_content, list):
+                            text_parts = []
+                            for block in raw_content:
+                                if isinstance(block, dict):
+                                    text_parts.append(block.get("text", ""))
+                                else:
+                                    text_parts.append(str(block))
+                            content_str = "".join(text_parts)
+                        else:
+                            content_str = str(raw_content)
+                        history.append({"role": role, "content": content_str})
 
         if message is None:
             message = ""
