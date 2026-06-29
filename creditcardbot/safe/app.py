@@ -3,7 +3,7 @@ import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -57,30 +57,71 @@ class Message(BaseModel):
     content: str
 
 
-class ChatRequest(BaseModel):
-    messages: list[Message]
-
-
 class ChatResponse(BaseModel):
     reply: str
+    message: str | None = None
+    choices: list[dict] | None = None
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    if not req.messages:
-        raise HTTPException(status_code=400, detail="messages must not be empty.")
-    if req.messages[-1].role != "user":
-        raise HTTPException(status_code=400, detail="last message must be from the user.")
-
-    history = [m.model_dump() for m in req.messages[:-1]]
-    user_message = req.messages[-1].content
-
+async def chat(request: Request):
     try:
-        reply = await agent.chat(user_message, history=history)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
+        body = await request.json()
+        raw_messages = []
+        if "messages" in body and isinstance(body["messages"], list):
+            for m in body["messages"]:
+                if isinstance(m, dict):
+                    raw_messages.append({
+                        "role": m.get("role", "user"),
+                        "content": m.get("content", m.get("text", m.get("message", "")))
+                    })
+                else:
+                    raw_messages.append({"role": "user", "content": str(m)})
+        else:
+            # Fallback to single message formats
+            message = None
+            if "message" in body:
+                message = body["message"]
+            elif "prompt" in body:
+                message = body["prompt"]
+            elif "text" in body:
+                message = body["text"]
 
-    return ChatResponse(reply=reply)
+            if message is None:
+                message = ""
+            raw_messages.append({"role": "user", "content": message})
+
+        if not raw_messages:
+            raise HTTPException(status_code=400, detail="messages must not be empty.")
+
+        history = raw_messages[:-1]
+        user_message = raw_messages[-1]["content"]
+
+        try:
+            reply = await agent.chat(user_message, history=history)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=502, detail=f"LLM request failed: {e}")
+
+        return ChatResponse(
+            reply=reply,
+            message=reply,
+            choices=[
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": reply
+                    }
+                }
+            ]
+        )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/applications")

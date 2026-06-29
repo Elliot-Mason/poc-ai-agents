@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -19,7 +19,9 @@ if _env_path.exists():
             os.environ.setdefault(key.strip(), value.strip())
 
 DB_PATH = Path(__file__).parent / "mortgage.db"
-PROMPT_LOG = Path(__file__).parent / "prompts.txt"
+PROMPT_LOG = Path(__file__).parent / "prompts.log"
+
+import traceback
 
 from chat.agent import MortgageAgent
 from llm.bedrock_adapter import BedrockAdapter
@@ -30,42 +32,111 @@ agent: MortgageAgent | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global agent
-    llm = BedrockAdapter(
-        model_id=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
-        region=os.getenv("AWS_REGION", "ap-southeast-2"),
-    )
-    agent = MortgageAgent(llm)
-    await agent.start()
-    print("Mortgage agent started")
+    try:
+        llm = BedrockAdapter(
+            model_id=os.getenv("BEDROCK_MODEL_ID", "global.anthropic.claude-sonnet-4-5-20250929-v1:0"),
+            region=os.getenv("AWS_REGION", "ap-southeast-2"),
+        )
+        agent = MortgageAgent(llm)
+        await agent.start()
+        print("Mortgage agent started")
+    except Exception as e:
+        print("LIFESPAN STARTUP EXCEPTION DETECTED:")
+        traceback.print_exc()
+        raise e
     yield
-    await agent.stop()
+    try:
+        if agent:
+            await agent.stop()
+    except Exception as e:
+        print("LIFESPAN SHUTDOWN EXCEPTION DETECTED:")
+        traceback.print_exc()
 
+
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 @app.post("/api/chat")
 async def chat(request: Request):
-    body = await request.json()
-    message = body["message"]
-    history = body.get("history", [])
-    stream = body.get("stream", True)
+    try:
+        body = await request.json()
+        # Robust key resolution to support multiple testing platform formats
+        message = None
+        history = body.get("history", [])
 
-    with open(PROMPT_LOG, "a") as f:
-        f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
+        if "message" in body:
+            message = body["message"]
+        elif "prompt" in body:
+            message = body["prompt"]
+        elif "text" in body:
+            message = body["text"]
+        elif "messages" in body and isinstance(body["messages"], list) and len(body["messages"]) > 0:
+            last_msg = body["messages"][-1]
+            if isinstance(last_msg, dict):
+                message = last_msg.get("content", last_msg.get("text", ""))
+            else:
+                message = str(last_msg)
 
-    if stream:
-        async def event_stream():
-            async for token in agent.stream_chat(message, history=history):
-                yield f"data: {json.dumps({'token': token})}\n\n"
-            yield f"data: {json.dumps({'done': True})}\n\n"
+            # Extract history from preceding messages if not already provided
+            if not history:
+                history = []
+                for m in body["messages"][:-1]:
+                    if isinstance(m, dict):
+                        role = m.get("role", "user")
+                        content = m.get("content", m.get("text", ""))
+                        history.append({"role": role, "content": content})
 
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        if message is None:
+            message = ""
+        stream = body.get("stream", False)
 
-    tokens = []
-    async for token in agent.stream_chat(message, history=history):
-        tokens.append(token)
-    return {"response": "".join(tokens)}
+        with open(PROMPT_LOG, "a") as f:
+            f.write(f"[{datetime.now(timezone.utc).isoformat()}] {message}\n")
+
+        if stream:
+            async def event_stream():
+                try:
+                    async for token in agent.stream_chat(message, history=history):
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                    yield f"data: {json.dumps({'done': True})}\n\n"
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+            return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+        tokens = []
+        async for token in agent.stream_chat(message, history=history):
+            tokens.append(token)
+        response_text = "".join(tokens)
+        return {
+            "response": response_text,
+            "message": response_text,
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": response_text
+                    }
+                }
+            ]
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/rates")
